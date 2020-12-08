@@ -11,12 +11,6 @@ github.com/Eun/go-hit/internal/converter
 github.com/Eun/go-hit/internal/minitest
 github.com/Eun/go-hit/internal/minitest/contains
 github.com/Eun/go-hit/internal/misc
-# github.com/Eun/go-testdoc v0.0.1
-## explicit
-github.com/Eun/go-testdoc
-# github.com/Eun/yaegi-template v1.5.16
-github.com/Eun/yaegi-template
-github.com/Eun/yaegi-template/codebuffer
 # github.com/araddon/dateparse v0.0.0-20200409225146-d820a6159ab1
 github.com/araddon/dateparse
 # github.com/davecgh/go-spew v1.1.1
@@ -32,10 +26,6 @@ github.com/google/go-cmp/cmp/internal/value
 github.com/google/uuid
 # github.com/gookit/color v1.3.2
 github.com/gookit/color
-# github.com/hashicorp/errwrap v1.0.0
-github.com/hashicorp/errwrap
-# github.com/hashicorp/go-multierror v1.1.0
-github.com/hashicorp/go-multierror
 # github.com/itchyny/astgen-go v0.0.0-20200815150004-12a293722290
 github.com/itchyny/astgen-go
 # github.com/itchyny/gojq v0.11.2
@@ -67,9 +57,6 @@ github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
 # github.com/tidwall/pretty v1.0.2
 github.com/tidwall/pretty
-# github.com/traefik/yaegi v0.9.8
-github.com/traefik/yaegi/interp
-github.com/traefik/yaegi/stdlib
 # go.uber.org/atomic v1.7.0
 ## explicit
 go.uber.org/atomic

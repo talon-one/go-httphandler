@@ -73,6 +73,7 @@ type HandlerFunc func(w http.ResponseWriter, r *http.Request) *HandlerError
 // If the HandlerError specifies a ContentType value the clients Accept header will be ignored.
 // If the provided handler function returns no error no action will be taken, this means that the specified handler func
 // is required to send the http headers, status code and body.
+//
 // Example:
 //     http.HandleFunc(HandleFunc(func(w http.ResponseWriter, r *http.Request) *HandlerError {
 //         return &HandlerError{
