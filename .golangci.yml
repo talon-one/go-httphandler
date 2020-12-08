@@ -1,3 +1,6 @@
+run:
+  skip-dirs:
+    - example
 linters-settings:
   depguard:
     include-go-root: false
