@@ -1,6 +1,7 @@
 package httphandler
 
 import (
+	"context"
 	"encoding/json"
 	"encoding/xml"
 	"io"
@@ -37,6 +38,8 @@ type Options struct {
 	// The RequestUUID is also available in the specified handler (in HandleFunc()) by using GetRequestUUID().
 	// If RequestUUIDFunc is nil the default request uuid func will be used.
 	RequestUUIDFunc func() string
+	// CustomPanicHandler it's called when a panic occurrs in the HTTP handler. It gets the request context value.
+	CustomPanicHandler func(context.Context)
 }
 
 // SetLogFunc sets the log function that will be called in case of error.
@@ -101,12 +104,17 @@ func (o *Options) SetRequestUUIDFunc(requestUUIDFunc func() string) error {
 	return nil
 }
 
+func (o *Options) SetCustomPanicHandler(f func(context.Context)) {
+	o.CustomPanicHandler = f
+}
+
 func defaultOptions() *Options {
 	return &Options{
 		LogFunc:             defaultLogFunc(),
 		Encoders:            defaultEncoders(),
 		FallbackEncoderFunc: defaultFallbackEncoder(),
 		RequestUUIDFunc:     defaultRequestUUID(),
+		CustomPanicHandler:  defaultCustomPanicHandler(),
 	}
 }
 
@@ -175,4 +183,8 @@ func defaultRequestUUID() func() string {
 	return func() string {
 		return uuid.New().String()
 	}
+}
+
+func defaultCustomPanicHandler() func(context.Context) {
+	return func(ctx context.Context) {}
 }

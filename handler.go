@@ -34,6 +34,9 @@ func New(options *Options) *Handler {
 	if options.RequestUUIDFunc == nil {
 		options.RequestUUIDFunc = defaultRequestUUID()
 	}
+	if options.CustomPanicHandler == nil {
+		options.CustomPanicHandler = defaultCustomPanicHandler()
+	}
 	return &Handler{options: options}
 }
 
@@ -88,7 +91,7 @@ func (h *Handler) HandleFunc(handler func(w http.ResponseWriter, r *http.Request
 		requestUUID := h.options.RequestUUIDFunc()
 		requestWithContext := r.WithContext(context.WithValue(r.Context(), uuidKey, requestUUID))
 
-		err := safeHandlerCall(handler, safeWriter, requestWithContext)
+		err := safeHandlerCall(handler, safeWriter, requestWithContext, h.options.CustomPanicHandler)
 		if err == nil {
 			return
 		}
@@ -180,12 +183,13 @@ func (h *Handler) SetRequestUUIDFunc(requestUUIDFunc func() string) error {
 	return h.options.SetRequestUUIDFunc(requestUUIDFunc)
 }
 
-func safeHandlerCall(h HandlerFunc, w http.ResponseWriter, r *http.Request) (err *HandlerError) {
+func safeHandlerCall(h HandlerFunc, w http.ResponseWriter, r *http.Request, panicHandler func(context.Context)) (err *HandlerError) {
 	defer func() {
 		e := recover()
 		if e == nil {
 			return
 		}
+		panicHandler(r.Context())
 		switch v := e.(type) {
 		case error:
 			err = &HandlerError{
