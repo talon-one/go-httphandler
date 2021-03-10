@@ -64,6 +64,7 @@ type WireError struct {
 	RequestUUID string
 }
 
+// PanicHandler is the type for custom functions for handling panics
 type PanicHandler func(context.Context, *HandlerError)
 
 // The HandlerFunc type is an adapter to allow the use of
