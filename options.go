@@ -105,7 +105,7 @@ func (o *Options) SetRequestUUIDFunc(requestUUIDFunc func() string) error {
 }
 
 // SetCustomPanicHandler sets a custom function that is going to be called
-// when panic occurs
+// when panic occurs.
 func (o *Options) SetCustomPanicHandler(f func(context.Context, *HandlerError)) {
 	o.CustomPanicHandler = f
 }
