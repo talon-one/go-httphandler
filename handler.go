@@ -64,6 +64,8 @@ type WireError struct {
 	RequestUUID string
 }
 
+type PanicHandler func(context.Context, *HandlerError)
+
 // The HandlerFunc type is an adapter to allow the use of
 // ordinary functions as HTTP handlers. If f is a function
 // with the appropriate signature, HandlerFunc(f) is a
@@ -183,7 +185,7 @@ func (h *Handler) SetRequestUUIDFunc(requestUUIDFunc func() string) error {
 	return h.options.SetRequestUUIDFunc(requestUUIDFunc)
 }
 
-func safeHandlerCall(h HandlerFunc, w http.ResponseWriter, r *http.Request, panicHandler func(context.Context, *HandlerError)) (err *HandlerError) {
+func safeHandlerCall(h HandlerFunc, w http.ResponseWriter, r *http.Request, ph PanicHandler) (err *HandlerError) {
 	defer func() {
 		e := recover()
 		if e == nil {
@@ -199,7 +201,7 @@ func safeHandlerCall(h HandlerFunc, w http.ResponseWriter, r *http.Request, pani
 				InternalError: errors.Errorf("panic: %v", v),
 			}
 		}
-		panicHandler(r.Context(), err)
+		ph(r.Context(), err)
 	}()
 	err = h(w, r)
 	return err
