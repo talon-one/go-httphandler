@@ -34,6 +34,9 @@ func New(options *Options) *Handler {
 	if options.RequestUUIDFunc == nil {
 		options.RequestUUIDFunc = defaultRequestUUID()
 	}
+	if options.CustomPanicHandler == nil {
+		options.CustomPanicHandler = defaultCustomPanicHandler()
+	}
 	return &Handler{options: options}
 }
 
@@ -60,6 +63,9 @@ type WireError struct {
 	// RequestUUID is the request uuid that should be send to the client.
 	RequestUUID string
 }
+
+// PanicHandler is the type for custom functions for handling panics.
+type PanicHandler func(context.Context, *HandlerError)
 
 // The HandlerFunc type is an adapter to allow the use of
 // ordinary functions as HTTP handlers. If f is a function
@@ -88,7 +94,7 @@ func (h *Handler) HandleFunc(handler func(w http.ResponseWriter, r *http.Request
 		requestUUID := h.options.RequestUUIDFunc()
 		requestWithContext := r.WithContext(context.WithValue(r.Context(), uuidKey, requestUUID))
 
-		err := safeHandlerCall(handler, safeWriter, requestWithContext)
+		err := safeHandlerCall(handler, safeWriter, requestWithContext, h.options.CustomPanicHandler)
 		if err == nil {
 			return
 		}
@@ -180,7 +186,7 @@ func (h *Handler) SetRequestUUIDFunc(requestUUIDFunc func() string) error {
 	return h.options.SetRequestUUIDFunc(requestUUIDFunc)
 }
 
-func safeHandlerCall(h HandlerFunc, w http.ResponseWriter, r *http.Request) (err *HandlerError) {
+func safeHandlerCall(h HandlerFunc, w http.ResponseWriter, r *http.Request, ph PanicHandler) (err *HandlerError) {
 	defer func() {
 		e := recover()
 		if e == nil {
@@ -196,6 +202,7 @@ func safeHandlerCall(h HandlerFunc, w http.ResponseWriter, r *http.Request) (err
 				InternalError: errors.Errorf("panic: %v", v),
 			}
 		}
+		ph(r.Context(), err)
 	}()
 	err = h(w, r)
 	return err
