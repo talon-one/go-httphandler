@@ -43,9 +43,9 @@ type HandlerError struct {
 	// If not specified HandleFunc will use http.StatusInternalServerError.
 	StatusCode int
 	// PublicError is the error that will be visible to the client. Do not include sensitive information here.
-	PublicError error
+	PublicError interface{}
 	// InternalError is the error that will not be visible to the client.
-	InternalError error
+	InternalError interface{}
 	// ContentType specifies the Content-Type of this error. If not specified HandleFunc will use the clients Accept
 	// header. If specified the clients Accept header will be ignored.
 	ContentType string
@@ -56,7 +56,7 @@ type WireError struct {
 	// StatusCode is the http status code that was sent to the client.
 	StatusCode int
 	// Error is the error message that should be send to the client.
-	Error string
+	Error interface{}
 	// RequestUUID is the request uuid that should be send to the client.
 	RequestUUID string
 }
@@ -119,8 +119,13 @@ func (h *Handler) HandleFunc(handler func(w http.ResponseWriter, r *http.Request
 func (h *Handler) sendError(err *HandlerError, requestUUID string, w http.ResponseWriter, r *http.Request) {
 	errorToSend := &WireError{
 		StatusCode:  err.StatusCode,
-		Error:       err.PublicError.Error(),
+		Error:       err.PublicError,
 		RequestUUID: requestUUID,
+	}
+
+	// if the public error is an error type use the string representation of the error
+	if e, ok := err.PublicError.(error); ok {
+		errorToSend.Error = e.Error()
 	}
 
 	var f EncodeFunc

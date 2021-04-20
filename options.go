@@ -3,6 +3,7 @@ package httphandler
 import (
 	"encoding/json"
 	"encoding/xml"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -15,7 +16,7 @@ import (
 )
 
 // LogFunc is the log function that will be called in case of error.
-type LogFunc func(handlerError, internalError, publicError error, statusCode int, requestUUID string)
+type LogFunc func(handlerError error, internalError, publicError interface{}, statusCode int, requestUUID string)
 
 // EncodeFunc is the encode function that will be called to encode the WireError in the desired format.
 type EncodeFunc func(http.ResponseWriter, *http.Request, *WireError) error
@@ -111,7 +112,7 @@ func defaultOptions() *Options {
 }
 
 func defaultLogFunc() LogFunc {
-	return func(handlerError, internalError, publicError error, statusCode int, requestUUID string) {
+	return func(handlerError error, internalError, publicError interface{}, statusCode int, requestUUID string) {
 		log.Printf("%v: internalError=%v, publicError=%v, statusCode=%d, requestUUID=%s",
 			handlerError,
 			internalError,
@@ -140,7 +141,7 @@ func defaultEncoders() map[string]EncodeFunc {
 			if _, err := io.WriteString(w, " Error</title></head><body><h1>"); err != nil {
 				return err
 			}
-			if _, err := io.WriteString(w, e.Error); err != nil {
+			if _, err := fmt.Fprintf(w, "%#v", e.Error); err != nil {
 				return err
 			}
 			if _, err := io.WriteString(w, "<hr>"); err != nil {
