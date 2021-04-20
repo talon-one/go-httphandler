@@ -17,10 +17,10 @@ import (
 
 func TestHandler(t *testing.T) {
 	options := httphandler.Options{
-		LogFunc: func(handlerError, internalError, publicError error, statusCode int, requestUUID string) {
+		LogFunc: func(handlerError error, internalError, publicError interface{}, statusCode int, requestUUID string) {
 			require.EqualError(t, handlerError, "handler error")
 			require.Nil(t, internalError)
-			require.EqualError(t, publicError, "bad request")
+			require.Equal(t, "bad request", publicError.(error).Error())
 			require.Equal(t, http.StatusBadRequest, statusCode)
 			require.Equal(t, "0123456789", requestUUID)
 		},
@@ -174,10 +174,10 @@ func TestDefaultErrorValues(t *testing.T) {
 	require.NoError(t, h.SetRequestUUIDFunc(func() string {
 		return "0123456789"
 	}))
-	require.NoError(t, h.SetLogFunc(func(handlerError, internalError, publicError error, statusCode int, requestUUID string) {
+	require.NoError(t, h.SetLogFunc(func(handlerError error, internalError, publicError interface{}, statusCode int, requestUUID string) {
 		require.EqualError(t, handlerError, "handler error")
 		require.Nil(t, internalError)
-		require.EqualError(t, publicError, "unknown error")
+		require.Equal(t, "unknown error", publicError.(error).Error())
 		require.Equal(t, http.StatusInternalServerError, statusCode)
 		require.Equal(t, "0123456789", requestUUID)
 	}))
@@ -202,7 +202,7 @@ func TestDefaultErrorValues(t *testing.T) {
 func TestFaultyEncoder(t *testing.T) {
 	var errorLog []error
 	options := httphandler.Options{
-		LogFunc: func(handlerError, internalError, publicError error, statusCode int, requestUUID string) {
+		LogFunc: func(handlerError error, internalError, publicError interface{}, statusCode int, requestUUID string) {
 			errorLog = append(errorLog, handlerError)
 		},
 		Encoders: map[string]httphandler.EncodeFunc{},
@@ -361,10 +361,10 @@ func TestSetEncodersOption(t *testing.T) {
 
 func TestSetLogFuncAndSetRequestUUIDFuncOption(t *testing.T) {
 	h := httphandler.New(nil)
-	require.NoError(t, h.SetLogFunc(func(handlerError, internalError, publicError error, statusCode int, requestUUID string) {
+	require.NoError(t, h.SetLogFunc(func(handlerError error, internalError, publicError interface{}, statusCode int, requestUUID string) {
 		require.EqualError(t, handlerError, "handler error")
 		require.Nil(t, internalError)
-		require.EqualError(t, publicError, "unknown error")
+		require.Equal(t, "unknown error", publicError.(error).Error())
 		require.Equal(t, http.StatusInternalServerError, statusCode)
 		require.Equal(t, "0123456789", requestUUID)
 	}))
@@ -485,4 +485,58 @@ func TestPanicHandler(t *testing.T) {
 			hit.Expect().Body().JSON().JQ(".Error").Equal("unknown error"),
 		)
 	})
+}
+
+func TestExtendedError(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", httphandler.HandleFunc(func(w http.ResponseWriter, r *http.Request) *httphandler.HandlerError {
+		return &httphandler.HandlerError{
+			PublicError: map[string]interface{}{
+				"Title":   "Some Error",
+				"Details": "Not implemented",
+			},
+		}
+	}))
+	s := httptest.NewServer(mux)
+	defer s.Close()
+
+	t.Run("application/json", func(t *testing.T) {
+		hit.Test(t,
+			hit.Get(s.URL),
+			hit.Send().Headers("Accept").Add("application/json"),
+			hit.Expect().Status().Equal(http.StatusInternalServerError),
+			hit.Expect().Headers("Content-Type").Equal("application/json"),
+			hit.Expect().Body().JSON().JQ(".StatusCode").Equal(http.StatusInternalServerError),
+			hit.Expect().Body().JSON().JQ(".RequestUUID").Len().GreaterThan(0),
+			hit.Expect().Body().JSON().JQ(".Error.Title").Equal("Some Error"),
+			hit.Expect().Body().JSON().JQ(".Error.Details").Equal("Not implemented"),
+		)
+	})
+}
+
+func TestRemoveEncoder(t *testing.T) {
+	opts := httphandler.DefaultOptions()
+	handler := httphandler.New(opts)
+	// remove text/html encoders
+	delete(opts.Encoders, "text/html")
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", handler.HandleFunc(func(w http.ResponseWriter, r *http.Request) *httphandler.HandlerError {
+		return &httphandler.HandlerError{
+			PublicError: errors.New("unknown error"),
+		}
+	}))
+	s := httptest.NewServer(mux)
+	defer s.Close()
+
+	hit.Test(t,
+		hit.Get(s.URL),
+		// request text/html, however since we removed the encoders earlier we should fallback to application/json
+		hit.Send().Headers("Accept").Add("text/html"),
+		hit.Expect().Status().Equal(http.StatusInternalServerError),
+		hit.Expect().Headers("Content-Type").Equal("application/json"),
+		hit.Expect().Body().JSON().JQ(".StatusCode").Equal(http.StatusInternalServerError),
+		hit.Expect().Body().JSON().JQ(".RequestUUID").Len().GreaterThan(0),
+		hit.Expect().Body().JSON().JQ(".Error").Equal("unknown error"),
+	)
 }
