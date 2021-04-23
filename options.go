@@ -39,7 +39,7 @@ type Options struct {
 	// The RequestUUID is also available in the specified handler (in HandleFunc()) by using GetRequestUUID().
 	// If RequestUUIDFunc is nil the default request uuid func will be used.
 	RequestUUIDFunc func() string
-	// CustomPanicHandler it's called when a panic occurrs in the HTTP handler. It gets the request context value.
+	// CustomPanicHandler it's called when a panic occurs in the HTTP handler. It gets the request context value.
 	CustomPanicHandler PanicHandler
 }
 
@@ -105,9 +105,8 @@ func (o *Options) SetRequestUUIDFunc(requestUUIDFunc func() string) error {
 	return nil
 }
 
-// SetCustomPanicHandler sets a custom function that is going to be called
-// when panic occurs.
-func (o *Options) SetCustomPanicHandler(f func(context.Context, *HandlerError)) {
+// SetCustomPanicHandler sets a custom function that is going to be called when a panic occurs.
+func (o *Options) SetCustomPanicHandler(f PanicHandler) {
 	o.CustomPanicHandler = f
 }
 

@@ -16,7 +16,6 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/pkg/errors"
 	"github.com/talon-one/go-httphandler"
 )
 
@@ -27,7 +26,7 @@ func main() {
 			// respond with the clients Accept header content type
 			return &httphandler.HandlerError{
 				StatusCode:    http.StatusBadRequest,
-				PublicError:   errors.New("only POST method is allowed"),
+				PublicError:   "only POST method is allowed",
 				InternalError: nil,
 				ContentType:   "",
 			}
@@ -37,19 +36,19 @@ func main() {
 			// return with internal server error if body is not available
 			// respond with the clients Accept header content type
 			return &httphandler.HandlerError{
-				InternalError: errors.New("body was nil"),
+				InternalError: "body was nil",
 			}
 		}
 		if _, err := ioutil.ReadAll(r.Body); err != nil {
 			return &httphandler.HandlerError{
-				InternalError: err,
+				InternalError: err.Error(),
 			}
 		}
 
 		w.WriteHeader(http.StatusOK)
 		if _, err := io.WriteString(w, "ok"); err != nil {
 			return &httphandler.HandlerError{
-				InternalError: err,
+				InternalError: err.Error(),
 			}
 		}
 		return nil
