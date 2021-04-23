@@ -20,7 +20,7 @@ func TestHandler(t *testing.T) {
 		LogFunc: func(handlerError error, internalError, publicError interface{}, statusCode int, requestUUID string) {
 			require.EqualError(t, handlerError, "handler error")
 			require.Nil(t, internalError)
-			require.Equal(t, "bad request", publicError.(error).Error())
+			require.Equal(t, "bad request", publicError)
 			require.Equal(t, http.StatusBadRequest, statusCode)
 			require.Equal(t, "0123456789", requestUUID)
 		},
@@ -54,7 +54,7 @@ func TestHandler(t *testing.T) {
 		if r.Method != http.MethodPost {
 			return &httphandler.HandlerError{
 				StatusCode:  http.StatusBadRequest,
-				PublicError: errors.New("bad request"),
+				PublicError: "bad request",
 			}
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -64,7 +64,7 @@ func TestHandler(t *testing.T) {
 		if r.Method != http.MethodPost {
 			return &httphandler.HandlerError{
 				StatusCode:  http.StatusBadRequest,
-				PublicError: errors.New("bad request"),
+				PublicError: "bad request",
 				ContentType: "text/html",
 			}
 		}
@@ -75,7 +75,7 @@ func TestHandler(t *testing.T) {
 		if r.Method != http.MethodPost {
 			return &httphandler.HandlerError{
 				StatusCode:  http.StatusBadRequest,
-				PublicError: errors.New("bad request"),
+				PublicError: "bad request",
 				ContentType: "application/json",
 			}
 		}
@@ -177,7 +177,7 @@ func TestDefaultErrorValues(t *testing.T) {
 	require.NoError(t, h.SetLogFunc(func(handlerError error, internalError, publicError interface{}, statusCode int, requestUUID string) {
 		require.EqualError(t, handlerError, "handler error")
 		require.Nil(t, internalError)
-		require.Equal(t, "unknown error", publicError.(error).Error())
+		require.Equal(t, "unknown error", publicError)
 		require.Equal(t, http.StatusInternalServerError, statusCode)
 		require.Equal(t, "0123456789", requestUUID)
 	}))
@@ -364,7 +364,7 @@ func TestSetLogFuncAndSetRequestUUIDFuncOption(t *testing.T) {
 	require.NoError(t, h.SetLogFunc(func(handlerError error, internalError, publicError interface{}, statusCode int, requestUUID string) {
 		require.EqualError(t, handlerError, "handler error")
 		require.Nil(t, internalError)
-		require.Equal(t, "unknown error", publicError.(error).Error())
+		require.Equal(t, "unknown error", publicError)
 		require.Equal(t, http.StatusInternalServerError, statusCode)
 		require.Equal(t, "0123456789", requestUUID)
 	}))
@@ -523,7 +523,7 @@ func TestRemoveEncoder(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handler.HandleFunc(func(w http.ResponseWriter, r *http.Request) *httphandler.HandlerError {
 		return &httphandler.HandlerError{
-			PublicError: errors.New("unknown error"),
+			PublicError: "unknown error",
 		}
 	}))
 	s := httptest.NewServer(mux)

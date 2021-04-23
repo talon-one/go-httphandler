@@ -45,9 +45,12 @@ type HandlerError struct {
 	// StatusCode is the http status code to send to the client.
 	// If not specified HandleFunc will use http.StatusInternalServerError.
 	StatusCode int
-	// PublicError is the error that will be visible to the client. Do not include sensitive information here.
+	// PublicError is the error object that will be visible to the client. Do not include sensitive information here.
+	// Remember that this type should implement the necessary Marshal functions for the specified encoder,
+	// otherwise you might see unexpected results.
 	PublicError interface{}
-	// InternalError is the error that will not be visible to the client.
+	// InternalError is the error object that will not be visible to the client. Remember that this type should
+	// implement the necessary Marshal functions for the specified encoder, otherwise you might see unexpected results.
 	InternalError interface{}
 	// ContentType specifies the Content-Type of this error. If not specified HandleFunc will use the clients Accept
 	// header. If specified the clients Accept header will be ignored.
@@ -103,7 +106,7 @@ func (h *Handler) HandleFunc(handler func(w http.ResponseWriter, r *http.Request
 			err.StatusCode = http.StatusInternalServerError
 		}
 		if err.PublicError == nil {
-			err.PublicError = errors.New("unknown error")
+			err.PublicError = "unknown error"
 		}
 		h.options.LogFunc(
 			errors.New("handler error"),
@@ -127,11 +130,6 @@ func (h *Handler) sendError(err *HandlerError, requestUUID string, w http.Respon
 		StatusCode:  err.StatusCode,
 		Error:       err.PublicError,
 		RequestUUID: requestUUID,
-	}
-
-	// if the public error is an error type use the string representation of the error
-	if e, ok := err.PublicError.(error); ok {
-		errorToSend.Error = e.Error()
 	}
 
 	var f EncodeFunc
@@ -200,11 +198,11 @@ func safeHandlerCall(h HandlerFunc, w http.ResponseWriter, r *http.Request, ph P
 		switch v := e.(type) {
 		case error:
 			err = &HandlerError{
-				InternalError: errors.Wrap(v, "panic"),
+				InternalError: errors.Wrap(v, "panic").Error(),
 			}
 		default:
 			err = &HandlerError{
-				InternalError: errors.Errorf("panic: %v", v),
+				InternalError: errors.Errorf("panic: %v", v).Error(),
 			}
 		}
 		ph(r.Context(), err)
