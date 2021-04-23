@@ -2,6 +2,7 @@ package httphandler
 
 import (
 	"context"
+	"fmt"
 	"mime"
 	"net/http"
 	"strings"
@@ -46,11 +47,11 @@ type HandlerError struct {
 	// If not specified HandleFunc will use http.StatusInternalServerError.
 	StatusCode int
 	// PublicError is the error object that will be visible to the client. Do not include sensitive information here.
-	// Remember that this type should implement the necessary Marshal functions for the specified encoder,
+	// Remember that this type should implement the necessary marshal functions for the specified encoder,
 	// otherwise you might see unexpected results.
 	PublicError interface{}
 	// InternalError is the error object that will not be visible to the client. Remember that this type should
-	// implement the necessary Marshal functions for the specified encoder, otherwise you might see unexpected results.
+	// implement the necessary marshal functions for the specified encoder, otherwise you might see unexpected results.
 	InternalError interface{}
 	// ContentType specifies the Content-Type of this error. If not specified HandleFunc will use the clients Accept
 	// header. If specified the clients Accept header will be ignored.
@@ -76,6 +77,11 @@ type PanicHandler func(context.Context, *HandlerError)
 // Handler that calls f.
 type HandlerFunc func(w http.ResponseWriter, r *http.Request) *HandlerError
 
+// ServeHTTP mimics the http.Handler interface, with the addition of the *HandlerError
+type ServeHTTP interface {
+	ServeHTTP(http.ResponseWriter, *http.Request) *HandlerError
+}
+
 // HandleFunc wraps a handler with a HandlerError return value.
 // In case the provided handler function returns an error, HandleFunc will construct a response based on the error and
 // the Accept header of the client.
@@ -84,45 +90,115 @@ type HandlerFunc func(w http.ResponseWriter, r *http.Request) *HandlerError
 // is required to send the http headers, status code and body.
 //
 // Example:
-//     http.HandleFunc(HandleFunc(func(w http.ResponseWriter, r *http.Request) *HandlerError {
+//     http.HandleFunc("/", HandleFunc(func(w http.ResponseWriter, r *http.Request) *HandlerError {
 //         return &HandlerError{
 //             StatusCode: http.StatusUnauthorized,
-//             PublicError: errors.New("you have no permission to view this site"),
-//             InternalError: errors.New("client authentication failed"),
+//             PublicError: "you have no permission to view this site",
+//             InternalError: "client authentication failed",
 //         }
 //     })
 func (h *Handler) HandleFunc(handler func(w http.ResponseWriter, r *http.Request) *HandlerError) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		safeWriter := newSafeResponseWriter(w)
-		requestUUID := h.options.RequestUUIDFunc()
-		requestWithContext := r.WithContext(context.WithValue(r.Context(), uuidKey, requestUUID))
-
-		err := safeHandlerCall(handler, safeWriter, requestWithContext, h.options.CustomPanicHandler)
-		if err == nil {
-			return
-		}
-
-		if err.StatusCode == 0 {
-			err.StatusCode = http.StatusInternalServerError
-		}
-		if err.PublicError == nil {
-			err.PublicError = "unknown error"
-		}
-		h.options.LogFunc(
-			errors.New("handler error"),
-			err.InternalError,
-			err.PublicError,
-			err.StatusCode,
-			requestUUID,
-		)
-
-		// we have written already
-		if safeWriter.Written() {
-			return
-		}
-
-		h.sendError(err, requestUUID, safeWriter, requestWithContext)
+		h.callNextHandler(handler, w, r)
 	}
+}
+
+// Handle mimics a http.Handler with a HandlerError return value.
+// See also HandleFunc.
+func (h *Handler) Handle(handler ServeHTTP) http.Handler {
+	return &httpHandler{
+		handler:   h,
+		serveHTTP: handler,
+	}
+}
+
+// SetLogFunc sets the log function that will be called in case of error.
+func (h *Handler) SetLogFunc(logFunc LogFunc) error {
+	return h.options.SetLogFunc(logFunc)
+}
+
+// SetEncoders sets the Encoders to the specified map of content type and EncodeFunc.
+// It will be used to lookup the encoder for the error content type.
+func (h *Handler) SetEncoders(encoders map[string]EncodeFunc) error {
+	return h.options.SetEncoders(encoders)
+}
+
+// SetEncoder sets one specific encoder in the Encoders map.
+func (h *Handler) SetEncoder(contentType string, encoder EncodeFunc) error {
+	return h.options.SetEncoder(contentType, encoder)
+}
+
+// SetFallbackEncoder sets the fallback encoder in case the error Content-Type does not exist in the
+// Encoders map.
+func (h *Handler) SetFallbackEncoder(contentType string, encoder EncodeFunc) error {
+	return h.options.SetFallbackEncoder(contentType, encoder)
+}
+
+// SetRequestUUIDFunc specifies the function that returns an request uuid. This request uuid will be send to the
+// LogFunc in case of error.
+// The request uuid is also available in the specified handler (in HandleFunc()) by using GetRequestUUID().
+func (h *Handler) SetRequestUUIDFunc(requestUUIDFunc func() string) error {
+	return h.options.SetRequestUUIDFunc(requestUUIDFunc)
+}
+
+// SetCustomPanicHandler sets a custom function that is going to be called when a panic occurs.
+func (h *Handler) SetCustomPanicHandler(f PanicHandler) {
+	h.options.SetCustomPanicHandler(f)
+}
+
+// callNextHandler calls the next specified handler func.
+func (h *Handler) callNextHandler(handler HandlerFunc, w http.ResponseWriter, r *http.Request) {
+	safeWriter := newSafeResponseWriter(w)
+	requestUUID := h.options.RequestUUIDFunc()
+	requestWithContext := r.WithContext(context.WithValue(r.Context(), uuidKey, requestUUID))
+
+	err := safeHandlerCall(handler, safeWriter, requestWithContext, h.options.CustomPanicHandler)
+	if err == nil {
+		return
+	}
+
+	if err.StatusCode == 0 {
+		err.StatusCode = http.StatusInternalServerError
+	}
+	if err.PublicError == nil {
+		err.PublicError = "unknown error"
+	}
+	h.options.LogFunc(
+		errors.New("handler error"),
+		err.InternalError,
+		err.PublicError,
+		err.StatusCode,
+		requestUUID,
+	)
+
+	// we have written already
+	if safeWriter.Written() {
+		return
+	}
+
+	h.sendError(err, requestUUID, safeWriter, requestWithContext)
+}
+
+func safeHandlerCall(h HandlerFunc, w http.ResponseWriter, r *http.Request, ph PanicHandler) (err *HandlerError) {
+	defer func() {
+		e := recover()
+		if e == nil {
+			return
+		}
+		switch v := e.(type) {
+		case error:
+			err = &HandlerError{
+				InternalError: fmt.Sprintf("panic: %s", v.Error()),
+			}
+		default:
+			err = &HandlerError{
+				InternalError: fmt.Sprintf("panic: %v", v),
+			}
+		}
+		ph(r.Context(), err)
+	}()
+	err = h(w, r)
+	return err
 }
 
 func (h *Handler) sendError(err *HandlerError, requestUUID string, w http.ResponseWriter, r *http.Request) {
@@ -160,55 +236,13 @@ func (h *Handler) sendError(err *HandlerError, requestUUID string, w http.Respon
 	}
 }
 
-// SetLogFunc sets the log function that will be called in case of error.
-func (h *Handler) SetLogFunc(logFunc LogFunc) error {
-	return h.options.SetLogFunc(logFunc)
+type httpHandler struct {
+	handler   *Handler
+	serveHTTP ServeHTTP
 }
 
-// SetEncoders sets the Encoders to the specified map of content type and EncodeFunc.
-// It will be used to lookup the encoder for the error content type.
-func (h *Handler) SetEncoders(encoders map[string]EncodeFunc) error {
-	return h.options.SetEncoders(encoders)
-}
-
-// SetEncoder sets one specific encoder in the Encoders map.
-func (h *Handler) SetEncoder(contentType string, encoder EncodeFunc) error {
-	return h.options.SetEncoder(contentType, encoder)
-}
-
-// SetFallbackEncoder sets the fallback encoder in case the error Content-Type does not exist in the
-// Encoders map.
-func (h *Handler) SetFallbackEncoder(contentType string, encoder EncodeFunc) error {
-	return h.options.SetFallbackEncoder(contentType, encoder)
-}
-
-// SetRequestUUIDFunc specifies the function that returns an request uuid. This request uuid will be send to the
-// LogFunc in case of error.
-// The request uuid is also available in the specified handler (in HandleFunc()) by using GetRequestUUID().
-func (h *Handler) SetRequestUUIDFunc(requestUUIDFunc func() string) error {
-	return h.options.SetRequestUUIDFunc(requestUUIDFunc)
-}
-
-func safeHandlerCall(h HandlerFunc, w http.ResponseWriter, r *http.Request, ph PanicHandler) (err *HandlerError) {
-	defer func() {
-		e := recover()
-		if e == nil {
-			return
-		}
-		switch v := e.(type) {
-		case error:
-			err = &HandlerError{
-				InternalError: errors.Wrap(v, "panic").Error(),
-			}
-		default:
-			err = &HandlerError{
-				InternalError: errors.Errorf("panic: %v", v).Error(),
-			}
-		}
-		ph(r.Context(), err)
-	}()
-	err = h(w, r)
-	return err
+func (h *httpHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	h.handler.callNextHandler(h.serveHTTP.ServeHTTP, writer, request)
 }
 
 func getPreferredContentType(options *Options, r *http.Request) (enocder EncodeFunc, contentType string) {
@@ -241,13 +275,19 @@ var DefaultHandler = New(nil)
 // is required to send the http headers, status code and body.
 //
 // Example:
-//     http.HandleFunc(HandleFunc(func(w http.ResponseWriter, r *http.Request) *HandlerError {
+//     http.HandleFunc("/", HandleFunc(func(w http.ResponseWriter, r *http.Request) *HandlerError {
 //         return &HandlerError{
 //             StatusCode: http.StatusUnauthorized,
-//             PublicError: errors.New("you have no permission to view this site"),
-//             InternalError: errors.New("client authentication failed"),
+//             PublicError: "you have no permission to view this site",
+//             InternalError: "client authentication failed",
 //         }
 //     })
-func HandleFunc(handler func(w http.ResponseWriter, r *http.Request) *HandlerError) func(w http.ResponseWriter, r *http.Request) {
+func HandleFunc(handler func(w http.ResponseWriter, r *http.Request) *HandlerError) http.HandlerFunc {
 	return DefaultHandler.HandleFunc(handler)
+}
+
+// Handle mimics a http.Handler with a HandlerError return value.
+// See also HandleFunc.
+func Handle(handler ServeHTTP) http.Handler {
+	return DefaultHandler.Handle(handler)
 }

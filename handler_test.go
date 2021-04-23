@@ -1,6 +1,7 @@
 package httphandler_test
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,7 +16,7 @@ import (
 	"github.com/talon-one/go-httphandler"
 )
 
-func TestHandler(t *testing.T) {
+func TestHandleFunc(t *testing.T) {
 	options := httphandler.Options{
 		LogFunc: func(handlerError error, internalError, publicError interface{}, statusCode int, requestUUID string) {
 			require.EqualError(t, handlerError, "handler error")
@@ -485,6 +486,28 @@ func TestPanicHandler(t *testing.T) {
 			hit.Expect().Body().JSON().JQ(".Error").Equal("unknown error"),
 		)
 	})
+
+	t.Run("set custom panic handler", func(t *testing.T) {
+		handler := httphandler.New(nil)
+		handler.SetCustomPanicHandler(func(ctx context.Context, handlerError *httphandler.HandlerError) {
+			require.Equal(t, "panic: oops", handlerError.InternalError)
+		})
+		mux := http.NewServeMux()
+		mux.HandleFunc("/", handler.HandleFunc(func(w http.ResponseWriter, r *http.Request) *httphandler.HandlerError {
+			panic("oops")
+		}))
+		s := httptest.NewServer(mux)
+		defer s.Close()
+
+		hit.Test(t,
+			hit.Get(s.URL),
+			hit.Expect().Status().Equal(http.StatusInternalServerError),
+			hit.Expect().Headers("Content-Type").Equal("application/json"),
+			hit.Expect().Body().JSON().JQ(".StatusCode").Equal(http.StatusInternalServerError),
+			hit.Expect().Body().JSON().JQ(".RequestUUID").Len().GreaterThan(0),
+			hit.Expect().Body().JSON().JQ(".Error").Equal("unknown error"),
+		)
+	})
 }
 
 func TestExtendedError(t *testing.T) {
@@ -533,6 +556,25 @@ func TestRemoveEncoder(t *testing.T) {
 		hit.Get(s.URL),
 		// request text/html, however since we removed the encoders earlier we should fallback to application/json
 		hit.Send().Headers("Accept").Add("text/html"),
+		hit.Expect().Status().Equal(http.StatusInternalServerError),
+		hit.Expect().Headers("Content-Type").Equal("application/json"),
+		hit.Expect().Body().JSON().JQ(".StatusCode").Equal(http.StatusInternalServerError),
+		hit.Expect().Body().JSON().JQ(".RequestUUID").Len().GreaterThan(0),
+		hit.Expect().Body().JSON().JQ(".Error").Equal("unknown error"),
+	)
+}
+
+type myHandler struct{}
+
+func (h myHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) *httphandler.HandlerError {
+	panic("implement me")
+}
+
+func TestHandler(t *testing.T) {
+	s := httptest.NewServer(httphandler.Handle(myHandler{}))
+	defer s.Close()
+	hit.Test(t,
+		hit.Get(s.URL),
 		hit.Expect().Status().Equal(http.StatusInternalServerError),
 		hit.Expect().Headers("Content-Type").Equal("application/json"),
 		hit.Expect().Body().JSON().JQ(".StatusCode").Equal(http.StatusInternalServerError),
