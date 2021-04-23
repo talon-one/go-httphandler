@@ -77,7 +77,7 @@ type PanicHandler func(context.Context, *HandlerError)
 // Handler that calls f.
 type HandlerFunc func(w http.ResponseWriter, r *http.Request) *HandlerError
 
-// ServeHTTP mimics the http.Handler interface, with the addition of the *HandlerError
+// ServeHTTP mimics the http.Handler interface, with the addition of the *HandlerError.
 type ServeHTTP interface {
 	ServeHTTP(http.ResponseWriter, *http.Request) *HandlerError
 }
