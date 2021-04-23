@@ -17,7 +17,7 @@ import (
 )
 
 // LogFunc is the log function that will be called in case of error.
-type LogFunc func(handlerError error, internalError, publicError interface{}, statusCode int, requestUUID string)
+type LogFunc func(handlerError, internalError, publicError error, statusCode int, requestUUID string)
 
 // EncodeFunc is the encode function that will be called to encode the WireError in the desired format.
 type EncodeFunc func(http.ResponseWriter, *http.Request, *WireError) error
@@ -121,7 +121,7 @@ func defaultOptions() *Options {
 }
 
 func defaultLogFunc() LogFunc {
-	return func(handlerError error, internalError, publicError interface{}, statusCode int, requestUUID string) {
+	return func(handlerError, internalError, publicError error, statusCode int, requestUUID string) {
 		log.Printf("%v: internalError=%v, publicError=%v, statusCode=%d, requestUUID=%s",
 			handlerError,
 			internalError,
@@ -134,50 +134,16 @@ func defaultLogFunc() LogFunc {
 
 func defaultEncoders() map[string]EncodeFunc {
 	return map[string]EncodeFunc{
-		"application/json": func(w http.ResponseWriter, r *http.Request, e *WireError) error {
-			return json.NewEncoder(w).Encode(e)
-		},
-		"application/xml": func(w http.ResponseWriter, r *http.Request, e *WireError) error {
-			return xml.NewEncoder(w).Encode(e)
-		},
-		"text/html": func(w http.ResponseWriter, r *http.Request, e *WireError) error {
-			if _, err := io.WriteString(w, "<!DOCTYPE html><html><head><title>"); err != nil {
-				return err
-			}
-			if _, err := io.WriteString(w, strconv.Itoa(e.StatusCode)); err != nil {
-				return err
-			}
-			if _, err := io.WriteString(w, " Error</title></head><body><h1>"); err != nil {
-				return err
-			}
-			if _, err := fmt.Fprintf(w, "%#v", e.Error); err != nil {
-				return err
-			}
-			if _, err := io.WriteString(w, "<hr>"); err != nil {
-				return err
-			}
-			if _, err := io.WriteString(w, "<p>RequestUUID: <code>"); err != nil {
-				return err
-			}
-			if _, err := io.WriteString(w, e.RequestUUID); err != nil {
-				return err
-			}
-			if _, err := io.WriteString(w, "</code></p></body></html>"); err != nil {
-				return err
-			}
-			return nil
-		},
-		"text/xml": func(w http.ResponseWriter, r *http.Request, e *WireError) error {
-			return xml.NewEncoder(w).Encode(e)
-		},
+		"application/json": DefaultJSONEncoder(),
+		"application/xml":  DefaultXMLEncoder(),
+		"text/html":        DefaultHTMLEncoder(),
+		"text/xml":         DefaultXMLEncoder(),
 	}
 }
 
 func defaultFallbackEncoder() func() (EncodeFunc, string) {
 	return func() (EncodeFunc, string) {
-		return func(w http.ResponseWriter, r *http.Request, e *WireError) error {
-			return json.NewEncoder(w).Encode(e)
-		}, "application/json"
+		return DefaultJSONEncoder(), "application/json"
 	}
 }
 
@@ -189,4 +155,93 @@ func defaultRequestUUID() func() string {
 
 func defaultCustomPanicHandler() PanicHandler {
 	return func(ctx context.Context, err *HandlerError) {}
+}
+
+// DefaultJSONEncoder implements the default JSON encoder that will be used.
+func DefaultJSONEncoder() EncodeFunc {
+	return func(w http.ResponseWriter, r *http.Request, e *WireError) error {
+		errToSend := struct {
+			StatusCode  *int
+			Error       interface{}
+			RequestUUID *string
+		}{
+			StatusCode:  &e.StatusCode,
+			RequestUUID: &e.RequestUUID,
+		}
+
+		// marshal the Error before everything else
+		buf, err := json.Marshal(e.Error)
+		if err != nil {
+			return errors.Wrap(err, "unable to encode error")
+		}
+
+		// if the error message is empty use the Error() function
+		if len(buf) == 0 || string(buf) == "{}" || string(buf) == "null" {
+			errToSend.Error = e.Error.Error()
+		} else {
+			errToSend.Error = json.RawMessage(buf)
+		}
+
+		return json.NewEncoder(w).Encode(errToSend)
+	}
+}
+
+// DefaultXMLEncoder implements the default XML encoder that will be used.
+func DefaultXMLEncoder() EncodeFunc {
+	return func(w http.ResponseWriter, r *http.Request, e *WireError) error {
+		errToSend := struct {
+			StatusCode  *int
+			Error       interface{}
+			RequestUUID *string
+		}{
+			StatusCode:  &e.StatusCode,
+			RequestUUID: &e.RequestUUID,
+		}
+
+		// marshal the Error before everything else
+		buf, err := xml.Marshal(e.Error)
+		if err != nil {
+			return errors.Wrap(err, "unable to encode error")
+		}
+
+		// if the error message is empty use the Error() function
+		if len(buf) == 0 || string(buf) == "<errorString></errorString>" {
+			errToSend.Error = json.RawMessage(e.Error.Error())
+		} else {
+			errToSend.Error = buf
+		}
+
+		return xml.NewEncoder(w).Encode(errToSend)
+	}
+}
+
+// DefaultHTMLEncoder implements the default HTML encoder that will be used.
+func DefaultHTMLEncoder() EncodeFunc {
+	return func(w http.ResponseWriter, r *http.Request, e *WireError) error {
+		if _, err := io.WriteString(w, "<!DOCTYPE html><html><head><title>"); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, strconv.Itoa(e.StatusCode)); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, " Error</title></head><body><h1>"); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(w, "%#v", e.Error); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, "<hr>"); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, "<p>RequestUUID: <code>"); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, e.RequestUUID); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, "</code></p></body></html>"); err != nil {
+			return err
+		}
+		return nil
+	}
 }

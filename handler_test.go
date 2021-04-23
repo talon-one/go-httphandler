@@ -2,6 +2,7 @@ package httphandler_test
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -18,10 +19,10 @@ import (
 
 func TestHandleFunc(t *testing.T) {
 	options := httphandler.Options{
-		LogFunc: func(handlerError error, internalError, publicError interface{}, statusCode int, requestUUID string) {
+		LogFunc: func(handlerError, internalError, publicError error, statusCode int, requestUUID string) {
 			require.EqualError(t, handlerError, "handler error")
 			require.Nil(t, internalError)
-			require.Equal(t, "bad request", publicError)
+			require.Equal(t, "bad request", publicError.Error())
 			require.Equal(t, http.StatusBadRequest, statusCode)
 			require.Equal(t, "0123456789", requestUUID)
 		},
@@ -55,7 +56,7 @@ func TestHandleFunc(t *testing.T) {
 		if r.Method != http.MethodPost {
 			return &httphandler.HandlerError{
 				StatusCode:  http.StatusBadRequest,
-				PublicError: "bad request",
+				PublicError: errors.New("bad request"),
 			}
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -65,7 +66,7 @@ func TestHandleFunc(t *testing.T) {
 		if r.Method != http.MethodPost {
 			return &httphandler.HandlerError{
 				StatusCode:  http.StatusBadRequest,
-				PublicError: "bad request",
+				PublicError: errors.New("bad request"),
 				ContentType: "text/html",
 			}
 		}
@@ -76,7 +77,7 @@ func TestHandleFunc(t *testing.T) {
 		if r.Method != http.MethodPost {
 			return &httphandler.HandlerError{
 				StatusCode:  http.StatusBadRequest,
-				PublicError: "bad request",
+				PublicError: errors.New("bad request"),
 				ContentType: "application/json",
 			}
 		}
@@ -175,10 +176,10 @@ func TestDefaultErrorValues(t *testing.T) {
 	require.NoError(t, h.SetRequestUUIDFunc(func() string {
 		return "0123456789"
 	}))
-	require.NoError(t, h.SetLogFunc(func(handlerError error, internalError, publicError interface{}, statusCode int, requestUUID string) {
+	require.NoError(t, h.SetLogFunc(func(handlerError, internalError, publicError error, statusCode int, requestUUID string) {
 		require.EqualError(t, handlerError, "handler error")
 		require.Nil(t, internalError)
-		require.Equal(t, "unknown error", publicError)
+		require.Equal(t, "unknown error", publicError.Error())
 		require.Equal(t, http.StatusInternalServerError, statusCode)
 		require.Equal(t, "0123456789", requestUUID)
 	}))
@@ -203,7 +204,7 @@ func TestDefaultErrorValues(t *testing.T) {
 func TestFaultyEncoder(t *testing.T) {
 	var errorLog []error
 	options := httphandler.Options{
-		LogFunc: func(handlerError error, internalError, publicError interface{}, statusCode int, requestUUID string) {
+		LogFunc: func(handlerError, internalError, publicError error, statusCode int, requestUUID string) {
 			errorLog = append(errorLog, handlerError)
 		},
 		Encoders: map[string]httphandler.EncodeFunc{},
@@ -362,10 +363,10 @@ func TestSetEncodersOption(t *testing.T) {
 
 func TestSetLogFuncAndSetRequestUUIDFuncOption(t *testing.T) {
 	h := httphandler.New(nil)
-	require.NoError(t, h.SetLogFunc(func(handlerError error, internalError, publicError interface{}, statusCode int, requestUUID string) {
+	require.NoError(t, h.SetLogFunc(func(handlerError, internalError, publicError error, statusCode int, requestUUID string) {
 		require.EqualError(t, handlerError, "handler error")
 		require.Nil(t, internalError)
-		require.Equal(t, "unknown error", publicError)
+		require.Equal(t, "unknown error", publicError.Error())
 		require.Equal(t, http.StatusInternalServerError, statusCode)
 		require.Equal(t, "0123456789", requestUUID)
 	}))
@@ -490,7 +491,7 @@ func TestPanicHandler(t *testing.T) {
 	t.Run("set custom panic handler", func(t *testing.T) {
 		handler := httphandler.New(nil)
 		handler.SetCustomPanicHandler(func(ctx context.Context, handlerError *httphandler.HandlerError) {
-			require.Equal(t, "panic: oops", handlerError.InternalError)
+			require.Equal(t, "panic: oops", handlerError.InternalError.Error())
 		})
 		mux := http.NewServeMux()
 		mux.HandleFunc("/", handler.HandleFunc(func(w http.ResponseWriter, r *http.Request) *httphandler.HandlerError {
@@ -510,13 +511,22 @@ func TestPanicHandler(t *testing.T) {
 	})
 }
 
+type extendedError struct {
+	Title   string
+	Details string
+}
+
+func (e extendedError) Error() string {
+	return fmt.Sprintf("error: title=`%s' details=`%s'", e.Title, e.Details)
+}
+
 func TestExtendedError(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", httphandler.HandleFunc(func(w http.ResponseWriter, r *http.Request) *httphandler.HandlerError {
 		return &httphandler.HandlerError{
-			PublicError: map[string]interface{}{
-				"Title":   "Some Error",
-				"Details": "Not implemented",
+			PublicError: extendedError{
+				Title:   "Some Error",
+				Details: "Not implemented",
 			},
 		}
 	}))
@@ -546,7 +556,7 @@ func TestRemoveEncoder(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handler.HandleFunc(func(w http.ResponseWriter, r *http.Request) *httphandler.HandlerError {
 		return &httphandler.HandlerError{
-			PublicError: "unknown error",
+			PublicError: errors.New("unknown error"),
 		}
 	}))
 	s := httptest.NewServer(mux)

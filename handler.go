@@ -46,13 +46,13 @@ type HandlerError struct {
 	// StatusCode is the http status code to send to the client.
 	// If not specified HandleFunc will use http.StatusInternalServerError.
 	StatusCode int
-	// PublicError is the error object that will be visible to the client. Do not include sensitive information here.
+	// PublicError is the error that will be visible to the client. Do not include sensitive information here.
 	// Remember that this type should implement the necessary marshal functions for the specified encoder,
 	// otherwise you might see unexpected results.
-	PublicError interface{}
-	// InternalError is the error object that will not be visible to the client. Remember that this type should
+	PublicError error
+	// InternalError is the error that will not be visible to the client. Remember that this type should
 	// implement the necessary marshal functions for the specified encoder, otherwise you might see unexpected results.
-	InternalError interface{}
+	InternalError error
 	// ContentType specifies the Content-Type of this error. If not specified HandleFunc will use the clients Accept
 	// header. If specified the clients Accept header will be ignored.
 	ContentType string
@@ -63,7 +63,7 @@ type WireError struct {
 	// StatusCode is the http status code that was sent to the client.
 	StatusCode int
 	// Error is the error message that should be send to the client.
-	Error interface{}
+	Error error
 	// RequestUUID is the request uuid that should be send to the client.
 	RequestUUID string
 }
@@ -161,7 +161,7 @@ func (h *Handler) callNextHandler(handler HandlerFunc, w http.ResponseWriter, r 
 		err.StatusCode = http.StatusInternalServerError
 	}
 	if err.PublicError == nil {
-		err.PublicError = "unknown error"
+		err.PublicError = errors.New("unknown error")
 	}
 	h.options.LogFunc(
 		errors.New("handler error"),
@@ -188,11 +188,11 @@ func safeHandlerCall(h HandlerFunc, w http.ResponseWriter, r *http.Request, ph P
 		switch v := e.(type) {
 		case error:
 			err = &HandlerError{
-				InternalError: fmt.Sprintf("panic: %s", v.Error()),
+				InternalError: errors.Wrap(v, "panic"),
 			}
 		default:
 			err = &HandlerError{
-				InternalError: fmt.Sprintf("panic: %v", v),
+				InternalError: fmt.Errorf("panic: %v", v),
 			}
 		}
 		ph(r.Context(), err)
