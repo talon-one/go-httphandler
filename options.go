@@ -17,7 +17,7 @@ import (
 )
 
 // LogFunc is the log function that will be called in case of error.
-type LogFunc func(handlerError, internalError, publicError error, statusCode int, requestUUID string)
+type LogFunc func(r *http.Request, handlerError, internalError, publicError error, statusCode int, requestUUID string)
 
 // EncodeFunc is the encode function that will be called to encode the WireError in the desired format.
 type EncodeFunc func(http.ResponseWriter, *http.Request, *WireError) error
@@ -121,7 +121,7 @@ func defaultOptions() *Options {
 }
 
 func defaultLogFunc() LogFunc {
-	return func(handlerError, internalError, publicError error, statusCode int, requestUUID string) {
+	return func(_ *http.Request, handlerError, internalError, publicError error, statusCode int, requestUUID string) {
 		log.Printf("%v: internalError=%v, publicError=%v, statusCode=%d, requestUUID=%s",
 			handlerError,
 			internalError,

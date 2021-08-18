@@ -163,7 +163,7 @@ func (h *Handler) callNextHandler(handler HandlerFunc, w http.ResponseWriter, r 
 	if err.PublicError == nil {
 		err.PublicError = errors.New("unknown error")
 	}
-	h.options.LogFunc(
+	h.options.LogFunc(r,
 		errors.New("handler error"),
 		err.InternalError,
 		err.PublicError,
@@ -226,7 +226,7 @@ func (h *Handler) sendError(err *HandlerError, requestUUID string, w http.Respon
 	w.Header().Set("Content-Type", err.ContentType)
 	w.WriteHeader(err.StatusCode)
 	if encodeErr := f(w, r, errorToSend); encodeErr != nil {
-		h.options.LogFunc(
+		h.options.LogFunc(r,
 			errors.Wrapf(encodeErr, "unable to encode %q", err.ContentType),
 			err.InternalError,
 			err.PublicError,
