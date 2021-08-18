@@ -19,7 +19,7 @@ import (
 
 func TestHandleFunc(t *testing.T) {
 	options := httphandler.Options{
-		LogFunc: func(handlerError, internalError, publicError error, statusCode int, requestUUID string) {
+		LogFunc: func(_ *http.Request, handlerError, internalError, publicError error, statusCode int, requestUUID string) {
 			require.EqualError(t, handlerError, "handler error")
 			require.Nil(t, internalError)
 			require.Equal(t, "bad request", publicError.Error())
@@ -176,7 +176,7 @@ func TestDefaultErrorValues(t *testing.T) {
 	require.NoError(t, h.SetRequestUUIDFunc(func() string {
 		return "0123456789"
 	}))
-	require.NoError(t, h.SetLogFunc(func(handlerError, internalError, publicError error, statusCode int, requestUUID string) {
+	require.NoError(t, h.SetLogFunc(func(_ *http.Request, handlerError, internalError, publicError error, statusCode int, requestUUID string) {
 		require.EqualError(t, handlerError, "handler error")
 		require.Nil(t, internalError)
 		require.Equal(t, "unknown error", publicError.Error())
@@ -204,7 +204,7 @@ func TestDefaultErrorValues(t *testing.T) {
 func TestFaultyEncoder(t *testing.T) {
 	var errorLog []error
 	options := httphandler.Options{
-		LogFunc: func(handlerError, internalError, publicError error, statusCode int, requestUUID string) {
+		LogFunc: func(_ *http.Request, handlerError, internalError, publicError error, statusCode int, requestUUID string) {
 			errorLog = append(errorLog, handlerError)
 		},
 		Encoders: map[string]httphandler.EncodeFunc{},
@@ -363,7 +363,7 @@ func TestSetEncodersOption(t *testing.T) {
 
 func TestSetLogFuncAndSetRequestUUIDFuncOption(t *testing.T) {
 	h := httphandler.New(nil)
-	require.NoError(t, h.SetLogFunc(func(handlerError, internalError, publicError error, statusCode int, requestUUID string) {
+	require.NoError(t, h.SetLogFunc(func(_ *http.Request, handlerError, internalError, publicError error, statusCode int, requestUUID string) {
 		require.EqualError(t, handlerError, "handler error")
 		require.Nil(t, internalError)
 		require.Equal(t, "unknown error", publicError.Error())

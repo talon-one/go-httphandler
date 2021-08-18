@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -15,7 +16,7 @@ func main() {
 			// respond with the clients Accept header content type
 			return &httphandler.HandlerError{
 				StatusCode:    http.StatusBadRequest,
-				PublicError:   "only POST method is allowed",
+				PublicError:   errors.New("only POST method is allowed"),
 				InternalError: nil,
 				ContentType:   "",
 			}
@@ -25,19 +26,19 @@ func main() {
 			// return with internal server error if body is not available
 			// respond with the clients Accept header content type
 			return &httphandler.HandlerError{
-				InternalError: "body was nil",
+				InternalError: errors.New("body was nil"),
 			}
 		}
 		if _, err := ioutil.ReadAll(r.Body); err != nil {
 			return &httphandler.HandlerError{
-				InternalError: err.Error(),
+				InternalError: err,
 			}
 		}
 
 		w.WriteHeader(http.StatusOK)
 		if _, err := io.WriteString(w, "ok"); err != nil {
 			return &httphandler.HandlerError{
-				InternalError: err.Error(),
+				InternalError: err,
 			}
 		}
 		return nil
