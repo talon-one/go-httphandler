@@ -17,10 +17,12 @@ import (
 	urlpkg "net/url"
 )
 
-//nolint:gochecknoglobals
+//nolint:gochecknoglobals // ett is used to initialize the errortrace, we always want to ignore some packages, so using
+// a global would help to avoid unnecessary initializations.
 var ett *errortrace.Template
 
-//nolint:gochecknoinits
+//nolint:gochecknoinits // ett is used to initialize the errortrace, we always want to ignore some packages, so using
+// a global would help to avoid unnecessary initializations.
 func init() {
 	ett = errortrace.New(
 		"testing",
@@ -156,7 +158,8 @@ func BaseURL(url string, a ...interface{}) IStep {
 		CallPath: newCallPath("BaseURL", nil),
 		Exec: func(hit *hitImpl) error {
 			if len(a) > 0 {
-				url = fmt.Sprintf(url, a...)
+				hit.baseURL = fmt.Sprintf(url, a...)
+				return nil
 			}
 			hit.baseURL = url
 			return nil
@@ -196,13 +199,13 @@ func makeMethodStep(fnName, method, url string, a ...interface{}) IStep {
 		CallPath: newCallPath(fnName, nil),
 		Exec: func(hit *hitImpl) error {
 			hit.request.Method = method
-			url = misc.MakeURL(hit.baseURL, url, a...)
-			if url == "" {
+			u := misc.MakeURL(hit.baseURL, url, a...)
+			if u == "" {
 				hit.request.URL = new(urlpkg.URL)
 				return nil
 			}
 			var err error
-			hit.request.URL, err = urlpkg.Parse(url)
+			hit.request.URL, err = urlpkg.Parse(u)
 			if err != nil {
 				return err
 			}
@@ -404,6 +407,11 @@ func do(steps ...IStep) *Error {
 	}
 	if hit.request.Request.Body != nil {
 		if err := hit.request.Request.Body.Close(); err != nil {
+			return wrapError(hit, err)
+		}
+	}
+	if hit.response.Response.Body != nil {
+		if err := hit.response.Response.Body.Close(); err != nil {
 			return wrapError(hit, err)
 		}
 	}

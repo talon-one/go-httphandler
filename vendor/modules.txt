@@ -2,7 +2,7 @@
 github.com/Eun/go-convert
 # github.com/Eun/go-doppelgangerreader v0.0.0-20190911075941-30f1527f16b2
 github.com/Eun/go-doppelgangerreader
-# github.com/Eun/go-hit v0.5.18
+# github.com/Eun/go-hit v0.5.23
 ## explicit
 github.com/Eun/go-hit
 github.com/Eun/go-hit/errortrace
@@ -15,24 +15,22 @@ github.com/Eun/go-hit/internal/misc
 github.com/araddon/dateparse
 # github.com/davecgh/go-spew v1.1.1
 github.com/davecgh/go-spew/spew
-# github.com/google/go-cmp v0.5.4
+# github.com/google/go-cmp v0.5.6
 github.com/google/go-cmp/cmp
 github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
 github.com/google/go-cmp/cmp/internal/function
 github.com/google/go-cmp/cmp/internal/value
-# github.com/google/uuid v1.1.2
+# github.com/google/uuid v1.3.0
 ## explicit
 github.com/google/uuid
-# github.com/gookit/color v1.3.2
+# github.com/gookit/color v1.4.2
 github.com/gookit/color
-# github.com/itchyny/astgen-go v0.0.0-20200815150004-12a293722290
-github.com/itchyny/astgen-go
-# github.com/itchyny/gojq v0.11.2
+# github.com/itchyny/gojq v0.12.5
 github.com/itchyny/gojq
-# github.com/itchyny/timefmt-go v0.1.1
+# github.com/itchyny/timefmt-go v0.1.3
 github.com/itchyny/timefmt-go
-# github.com/json-iterator/go v1.1.10
+# github.com/json-iterator/go v1.1.12
 github.com/json-iterator/go
 # github.com/k0kubun/pp v3.0.1+incompatible
 github.com/k0kubun/pp
@@ -40,31 +38,34 @@ github.com/k0kubun/pp
 github.com/lunixbochs/vtclean
 # github.com/mattn/go-colorable v0.1.7
 github.com/mattn/go-colorable
-# github.com/mattn/go-isatty v0.0.12
+# github.com/mattn/go-isatty v0.0.13
 github.com/mattn/go-isatty
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
 github.com/modern-go/concurrent
-# github.com/modern-go/reflect2 v1.0.1
+# github.com/modern-go/reflect2 v1.0.2
 github.com/modern-go/reflect2
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
 github.com/pmezard/go-difflib/difflib
-# github.com/stretchr/testify v1.6.1
+# github.com/stretchr/testify v1.7.0
 ## explicit
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
-# github.com/tidwall/pretty v1.0.2
+# github.com/tidwall/pretty v1.2.0
 github.com/tidwall/pretty
-# go.uber.org/atomic v1.7.0
+# github.com/xo/terminfo v0.0.0-20210125001918-ca9a967f8778
+github.com/xo/terminfo
+# go.uber.org/atomic v1.9.0
 ## explicit
 go.uber.org/atomic
-# golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f
+# golang.org/x/sys v0.0.0-20210831042530-f4d43177bf5e
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
+golang.org/x/sys/windows
 # golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 golang.org/x/xerrors
 golang.org/x/xerrors/internal
-# gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
+# gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 gopkg.in/yaml.v3
