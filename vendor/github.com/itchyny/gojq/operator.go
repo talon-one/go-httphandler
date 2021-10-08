@@ -95,8 +95,11 @@ func (op Operator) String() string {
 }
 
 // GoString implements GoStringer.
-func (op Operator) GoString() string {
+func (op Operator) GoString() (str string) {
+	defer func() { str = "gojq." + str }()
 	switch op {
+	case Operator(0):
+		return "Operator(0)"
 	case OpPipe:
 		return "OpPipe"
 	case OpComma:
@@ -207,13 +210,13 @@ func (op Operator) getFunc() string {
 
 func binopTypeSwitch(
 	l, r interface{},
-	callbackInts func(int, int) interface{},
-	callbackFloats func(float64, float64) interface{},
-	callbackBigInts func(*big.Int, *big.Int) interface{},
-	callbackStrings func(string, string) interface{},
-	callbackArrays func(l, r []interface{}) interface{},
-	callbackMaps func(l, r map[string]interface{}) interface{},
-	fallback func(interface{}, interface{}) interface{}) interface{} {
+	callbackInts func(_, _ int) interface{},
+	callbackFloats func(_, _ float64) interface{},
+	callbackBigInts func(_, _ *big.Int) interface{},
+	callbackStrings func(_, _ string) interface{},
+	callbackArrays func(_, _ []interface{}) interface{},
+	callbackMaps func(_, _ map[string]interface{}) interface{},
+	fallback func(_, _ interface{}) interface{}) interface{} {
 	switch l := l.(type) {
 	case int:
 		switch r := r.(type) {
@@ -325,7 +328,7 @@ func funcOpAdd(_, l, r interface{}) interface{} {
 			return append(append(v, l...), r...)
 		},
 		func(l, r map[string]interface{}) interface{} {
-			m := make(map[string]interface{})
+			m := make(map[string]interface{}, len(l)+len(r))
 			for k, v := range l {
 				m[k] = v
 			}
@@ -375,7 +378,7 @@ func funcOpMul(_, l, r interface{}) interface{} {
 		deepMergeObjects,
 		func(l, r interface{}) interface{} {
 			multiplyString := func(s string, cnt float64) interface{} {
-				if cnt <= 0.0 || int(cnt) < 0 || int(cnt) > maxHalfInt/(16*(len(s)+1)) {
+				if cnt <= 0.0 || cnt > float64(maxHalfInt/(16*(len(s)+1))) || math.IsNaN(cnt) {
 					return nil
 				}
 				if cnt < 1.0 {
@@ -399,7 +402,7 @@ func funcOpMul(_, l, r interface{}) interface{} {
 }
 
 func deepMergeObjects(l, r map[string]interface{}) interface{} {
-	m := make(map[string]interface{})
+	m := make(map[string]interface{}, len(l)+len(r))
 	for k, v := range l {
 		m[k] = v
 	}
@@ -425,6 +428,9 @@ func funcOpDiv(_, l, r interface{}) interface{} {
 				}
 				return &zeroDivisionError{l, r}
 			}
+			if l%r == 0 {
+				return l / r
+			}
 			return float64(l) / float64(r)
 		},
 		func(l, r float64) interface{} {
@@ -433,14 +439,6 @@ func funcOpDiv(_, l, r interface{}) interface{} {
 					return math.NaN()
 				}
 				return &zeroDivisionError{l, r}
-			} else if isinf(r) {
-				if isinf(l) {
-					return math.NaN()
-				}
-				if (r >= 0) == (l >= 0) {
-					return 0.0
-				}
-				return math.Copysign(0.0, -1)
 			}
 			return l / r
 		},
@@ -451,18 +449,11 @@ func funcOpDiv(_, l, r interface{}) interface{} {
 				}
 				return &zeroDivisionError{l, r}
 			}
-			x := new(big.Int).Div(l, r)
-			if new(big.Int).Mul(x, r).Cmp(l) == 0 {
-				return x
+			d, m := new(big.Int).DivMod(l, r, new(big.Int))
+			if m.Sign() == 0 {
+				return d
 			}
-			rf := bigToFloat(r)
-			if isinf(rf) {
-				if l.Sign() == r.Sign() {
-					return 0.0
-				}
-				return math.Copysign(0.0, -1)
-			}
-			return bigToFloat(l) / rf
+			return bigToFloat(l) / bigToFloat(r)
 		},
 		func(l, r string) interface{} {
 			if l == "" {
@@ -490,16 +481,17 @@ func funcOpMod(_, l, r interface{}) interface{} {
 			return l % r
 		},
 		func(l, r float64) interface{} {
-			if int(r) == 0 {
+			ri := floatToInt(r)
+			if ri == 0 {
 				return &zeroModuloError{l, r}
 			}
-			return int(l) % int(r)
+			return floatToInt(l) % ri
 		},
 		func(l, r *big.Int) interface{} {
 			if r.Sign() == 0 {
 				return &zeroModuloError{l, r}
 			}
-			return new(big.Int).Mod(l, r)
+			return new(big.Int).Rem(l, r)
 		},
 		func(l, r string) interface{} { return &binopTypeError{"modulo", l, r} },
 		func(l, r []interface{}) interface{} { return &binopTypeError{"modulo", l, r} },

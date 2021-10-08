@@ -1,15 +1,92 @@
 # Changelog
+## [v0.12.5](https://github.com/itchyny/gojq/compare/v0.12.4..v0.12.5) (2021-09-01)
+* implement `input_filename` function for the command
+* fix priority bug of declared functions and arguments (`def g: 1; def f(g): g; f(2)`)
+* fix label handling to catch the correct break error (`first((0, 0) | first(0))`)
+* fix `null|error` and `error(null) to behave like `empty` (`null | [0, error, error(null), 1]`)
+* fix integer division to keep precision when divisible (`1 / 1 * 1000000000000000000000`)
+* fix modulo operator on negative number and large number (`(-1) % 10000000000`)
+* fix combination of slurp (`--slurp`) and raw input option (`--raw-input`) to keep newlines
+* change the default module paths to `~/.jq`, `$ORIGIN/../lib/gojq`, `$ORIGIN/lib`
+  where `$ORIGIN` is the directory where the executable is located in
+* improve command argument parser to recognize query with leading hyphen,
+  allow hyphen for standard input, and force posix style on Windows
+* improve `@base64d` to allow input without padding characters
+* improve `fromdate`, `fromdateiso8601` to parse date time strings with timezone offset
+* improve `halt_error` to print error values without prefix
+* improve `sub`, `gsub` to allow the replacement string emitting multiple values
+* improve encoding `\b` and `\f` in strings
+* improve module loader for search path in query, and absolute path
+* improve query lexer to support string literal including newlines
+* improve performance of `index`, `rindex`, `indices`, `transpose`, and `walk` functions
+* improve performance of value preview in errors and debug mode
+* improve runtime performance including tail call optimization
+* switch Docker base image to `distroless/static:debug`
+
+## [v0.12.4](https://github.com/itchyny/gojq/compare/v0.12.3..v0.12.4) (2021-06-01)
+* fix numeric conversion of large floating-point numbers in modulo operator
+* implement a compiler option for adding custom iterator functions
+* implement `gojq.NewIter` function for creating a new iterator from values
+* implement `$ARGS.named` for listing command line variables
+* remove `debug` and `stderr` functions from the library
+* stop printing newlines on `stderr` function for jq compatibility
+
+## [v0.12.3](https://github.com/itchyny/gojq/compare/v0.12.2..v0.12.3) (2021-04-01)
+* fix array slicing with infinities and large numbers (`[0][-infinite:infinite], [0][:1e20]`)
+* fix multiplying strings and modulo by infinities on MIPS 64 architecture
+* fix git revision information in Docker images
+* release multi-platform Docker images for ARM 64
+* switch to `distroless` image for Docker base image
+
+## [v0.12.2](https://github.com/itchyny/gojq/compare/v0.12.1..v0.12.2) (2021-03-01)
+* implement `GOJQ_COLORS` environment variable to configure individual colors
+* respect `--color-output` (`-C`) option even if `NO_COLOR` is set
+* implement `gojq.ValueError` interface for custom internal functions
+* fix crash on timestamps in YAML input
+* fix calculation on `infinite` (`infinite-infinite | isnan`)
+* fix comparison on `nan` (`nan < nan`)
+* fix validation of `implode` (`[-1] | implode`)
+* fix number normalization for custom JSON module loader
+* print error line numbers on invalid JSON and YAML
+* improve `strftime`, `strptime` for time zone offsets
+* improve performance on reading a large JSON file given by command line argument
+* improve performance and reduce memory allocation of the lexer, compiler and executor
+
+## [v0.12.1](https://github.com/itchyny/gojq/compare/v0.12.0..v0.12.1) (2021-01-17)
+* skip adding `$HOME/.jq` to module paths when `$HOME` is unset
+* fix optional operator followed by division operator (`1?/1`)
+* fix undefined format followed by optional operator (`@foo?`)
+* fix parsing invalid consecutive dots while scanning a number (`0..[empty]`)
+* fix panic on printing a query with `%#v`
+* improve performance and reduce memory allocation of `query.String()`
+* change all methods of `ModuleLoader` optional
+
+## [v0.12.0](https://github.com/itchyny/gojq/compare/v0.11.2..v0.12.0) (2020-12-24)
+* implement tab indentation option (`--tab`)
+* implement a compiler option for adding custom internal functions
+* implement `gojq.Marshal` function for jq-flavored encoding
+* fix slurp option with JSON file arguments
+* fix escaping characters in object keys
+* fix normalizing negative `int64` to `int` on 32-bit architecture
+* fix crash on continuing iteration after emitting an error
+* `iter.Next()` does not normalize `NaN` and infinities anymore. Library users
+  should take care of them. To handle them for encoding as JSON bytes, use
+  `gojq.Marshal`. Also, `iter.Next()` does not clone values deeply anymore for
+  performance reason. Users must not update the elements of the returned arrays
+  and objects
+* improve performance of outputting JSON values by about 3.5 times
+
 ## [v0.11.2](https://github.com/itchyny/gojq/compare/v0.11.1..v0.11.2) (2020-10-01)
 * fix build for 32bit architecture
 * release to [GitHub Container Registry](https://github.com/users/itchyny/packages/container/package/gojq)
 
 ## [v0.11.1](https://github.com/itchyny/gojq/compare/v0.11.0..v0.11.1) (2020-08-22)
-*  improve compatibility of `strftime`, `strptime` functions with jq
-*  fix YAML input with numbers in keys
-*  fix crash on multiplying a large number or `infinite` to a string
-*  fix crash on error while slicing a string (`""[:{}]`)
-*  fix crash on modulo by a number near 0.0 (`1 % 0.1`)
-*  include `CREDITS` file in artifacts
+* improve compatibility of `strftime`, `strptime` functions with jq
+* fix YAML input with numbers in keys
+* fix crash on multiplying a large number or `infinite` to a string
+* fix crash on error while slicing a string (`""[:{}]`)
+* fix crash on modulo by a number near 0.0 (`1 % 0.1`)
+* include `CREDITS` file in artifacts
 
 ## [v0.11.0](https://github.com/itchyny/gojq/compare/v0.10.4..v0.11.0) (2020-07-08)
 * improve parsing performance significantly
