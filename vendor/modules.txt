@@ -57,7 +57,7 @@ github.com/stretchr/testify/require
 github.com/tidwall/pretty
 # github.com/xo/terminfo v0.0.0-20210125001918-ca9a967f8778
 github.com/xo/terminfo
-# go.uber.org/atomic v1.9.0
+# go.uber.org/atomic v1.10.0
 ## explicit
 go.uber.org/atomic
 # golang.org/x/sys v0.0.0-20210831042530-f4d43177bf5e
